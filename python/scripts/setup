@@ -1,0 +1,33 @@
+#! /usr/bin/env bash
+
+set -e
+
+SCRIPTS_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+PROJECT_DIR=$(cd $SCRIPTS_DIR/.. && pwd)
+VENV_DIR=$(echo $PROJECT_DIR/.venv)
+LIB_DIR=$(echo $PROJECT_DIR/lib)
+
+cd $PROJECT_DIR
+
+if [ ! -d $VENV_DIR ]; then
+  virtualenv -p python3.8 $VENV_DIR
+fi
+
+. $VENV_DIR/bin/activate
+pip install pip-tools
+
+# order matters in the REQ_FILES list because files depend on each other
+REQ_FILES=(requirements requirements-test)
+for fName in ${REQ_FILES[*]}; do
+  if [ -f ${fName}.in ]; then
+    pip-compile -o ${fName}.txt ${fName}.in
+    pip install -r ${fName}.txt
+  fi
+done
+
+PROTOS_DIR=$(cd $PROJECT_DIR/../protos && pwd)
+SRC_DIR=$(cd $PROJECT_DIR/src && pwd)
+if [ -d ../protos ]; then
+  python -m grpc_tools.protoc -I${PROTOS_DIR} --python_out=${SRC_DIR} --grpc_python_out=${SRC_DIR} ${PROTOS_DIR}/greeting.proto 
+fi
+
